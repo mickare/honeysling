@@ -8,16 +8,22 @@ from typing import Optional
 
 import asyncssh
 from asyncssh import SSHServerProcess, SSHWriter, SSHReader, SSHKey
+from asyncssh.connection import SSHConnection, SSHServerConnection
 
 
 class HoneypotServer(asyncssh.SSHServer):
 
     def __init__(self, logger: logging.Logger):
         self.logger = logger
+        self._conn: Optional[SSHServerConnection] = None
 
-    def connection_made(self, conn):
+    def get_peername(self):
+        return self._conn.get_extra_info('peername')[0]
+
+    def connection_made(self, conn: SSHServerConnection):
         self.logger.info('SSH connection received from %s.',
                          conn.get_extra_info('peername')[0])
+        self._conn = conn
 
     def connection_lost(self, exc):
         if exc:
@@ -32,7 +38,7 @@ class HoneypotServer(asyncssh.SSHServer):
         return True
 
     def validate_password(self, username, password):
-        self.logger.info("User %s tried password %s", username, password)
+        self.logger.info("User %s (%s) tried password %s", username, self.get_peername(), password)
         return True
 
 
