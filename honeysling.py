@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 import argparse
 import asyncio
+import functools
 import logging
 import os
 import sys
 from typing import Optional
 
 import asyncssh
-from asyncssh import SSHServerProcess, SSHWriter, SSHReader, SSHKey
+from asyncssh import SSHServerProcess, SSHWriter, SSHReader, SSHKey, SSHServerChannel
 from asyncssh.connection import SSHConnection, SSHServerConnection
 
 
@@ -42,13 +43,25 @@ class HoneypotServer(asyncssh.SSHServer):
         return True
 
 
-def handle_client(process: SSHServerProcess):
+async def handle_client(logger: logging.Logger, process: SSHServerProcess):
     try:
+        user = process.get_extra_info('username')
+
+        ch: SSHServerChannel = process.channel
         stdout: SSHWriter = process.stdout
         stderr: SSHWriter = process.stderr
         stdin: SSHReader = process.stdin
 
-        stdout.write('Welcome %s!\n\n' % process.get_extra_info('username'))
+        if process.command:
+            logger.info("User %s command: %s", user, process.command)
+
+        stdout.write('Welcome %s!\n\n' % user)
+
+        try:
+            line = await asyncio.wait_for(stdin.readline(), timeout=5)
+            logger.info("User %s command: %s", user, line)
+        except asyncio.TimeoutError:
+            pass
 
     finally:
         process.exit(0)
@@ -77,9 +90,11 @@ async def run_server(loop: asyncio.AbstractEventLoop, logger: logging.Logger, po
         return HoneypotServer(logger)
 
     logger.info("Running Honeypot on port %s", port)
+
+    process_factory = functools.partial(handle_client, logger)
     server: asyncio.AbstractServer = await asyncssh.create_server(server_factory, port=port,
                                                                   server_host_keys=[host_key],
-                                                                  process_factory=handle_client,
+                                                                  process_factory=process_factory,
                                                                   loop=loop)
 
     async with server:
