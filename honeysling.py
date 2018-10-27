@@ -55,11 +55,13 @@ async def handle_client(logger: logging.Logger, process: SSHServerProcess):
         if process.command:
             logger.info("User %s command: %s", user, process.command)
 
-        stdout.write('Welcome %s!\n\n' % user)
+        stdout.write('Welcome!\n')
+        stdout.write("%s@myserver:~$" % user)
 
         try:
-            line = await asyncio.wait_for(stdin.readline(), timeout=5)
-            logger.info("User %s command: %s", user, line)
+            for i in range(0, 5):
+                line = await asyncio.wait_for(stdin.readline(), timeout=5)
+                logger.info("User %s command: %s", user, line)
         except asyncio.TimeoutError:
             pass
 
