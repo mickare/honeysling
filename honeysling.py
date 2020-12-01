@@ -96,8 +96,7 @@ async def run_server(loop: asyncio.AbstractEventLoop, logger: logging.Logger, po
     process_factory = functools.partial(handle_client, logger)
     server: asyncio.AbstractServer = await asyncssh.create_server(server_factory, port=port,
                                                                   server_host_keys=[host_key],
-                                                                  process_factory=process_factory,
-                                                                  loop=loop)
+                                                                  process_factory=process_factory)
 
     async with server:
         await server.wait_closed()
